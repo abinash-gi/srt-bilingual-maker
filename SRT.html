@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRT Bilingual Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #c8f060;
+    --accent-dim: #8aaa30;
+    --text: #f0f0f0;
+    --muted: #666;
+    --danger: #ff5f5f;
+    --info: #60c8f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 2.5rem 3rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+  }
+
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  header span {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 3rem;
+  }
+
+  .tab {
+    padding: 1rem 1.5rem 1rem 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.2s, border-color 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .main {
+    flex: 1;
+    padding: 3rem;
+    max-width: 780px;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .section-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .drop-zone {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    background: var(--surface);
+  }
+
+  .drop-zone:hover, .drop-zone.drag { border-color: var(--accent); background: #161e08; }
+
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-zone .icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.6rem;
+    display: block;
+    filter: grayscale(1);
+    transition: filter 0.2s;
+  }
+  .drop-zone:hover .icon { filter: none; }
+
+  .drop-zone p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; }
+  .drop-zone p strong { color: var(--text); font-weight: 500; }
+
+  .file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    margin-top: 0.75rem;
+  }
+
+  .file-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--accent);
+    color: #0e0e0e;
+    border: none;
+    border-radius: 4px;
+    padding: 0.7rem 1.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    letter-spacing: 0.04em;
+  }
+
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn.secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .progress-wrap { margin-top: 1.5rem; }
+
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-bar-track {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  .log {
+    margin-top: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.9;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .log .ok { color: var(--accent); }
+  .log .err { color: var(--danger); }
+  .log .info { color: var(--info); }
+
+  .notice {
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: var(--surface);
+    border-left: 2px solid var(--accent-dim);
+    padding: 0.75rem 1rem;
+    border-radius: 0 4px 4px 0;
+    line-height: 1.7;
+  }
+
+  .spacer { height: 1.5rem; }
+  .spacer-sm { height: 1rem; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  select {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 1.5rem; }
+    .tabs { padding: 0 1.5rem; }
+    .main { padding: 1.5rem; }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SRT Bilingual Maker</h1>
+  <span>// subtitle translator &amp; merger</span>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('translate')">01 — Translate</button>
+  <button class="tab" onclick="switchTab('merge')">02 — Merge</button>
+</div>
+
+<div class="main">
+
+  <!-- ── TRANSLATE PANEL ─────────────────────────────────── -->
+  <div class="panel active" id="panel-translate">
+
+    <div class="section-label">Source language</div>
+    <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;">
+      <select id="lang-from">
+        <option value="en">English</option>
+        <option value="de">German</option>
+        <option value="fr">French</option>
+        <option value="es">Spanish</option>
+        <option value="it">Italian</option>
+        <option value="pt">Portuguese</option>
+        <option value="nl">Dutch</option>
+        <option value="pl">Polish</option>
+        <option value="ru">Russian</option>
+        <option value="ja">Japanese</option>
+        <option value="zh">Chinese</option>
+        <option value="ko">Korean</option>
+        <option value="tr">Turkish</option>
+        <option value="ar">Arabic</option>
+      </select>
+      <span style="color:var(--muted);font-size:0.8rem;">→</span>
+      <select id="lang-to">
+        <option value="de">German</option>
+        <option value="en">English</option>
+        <option value="fr">French</option>
+        <option value="es">Spanish</option>
+        <option value="it">Italian</option>
+        <option value="pt">Portuguese</option>
+        <option value="nl">Dutch</option>
+        <option value="pl">Polish</option>
+        <option value="ru">Russian</option>
+        <option value="ja">Japanese</option>
+        <option value="zh">Chinese</option>
+        <option value="ko">Korean</option>
+        <option value="tr">Turkish</option>
+        <option value="ar">Arabic</option>
+      </select>
+    </div>
+
+    <div class="section-label">Upload .srt file</div>
+    <div class="drop-zone" id="drop-translate">
+      <input type="file" accept=".srt" id="file-translate" onchange="handleTranslateFile(this.files[0])">
+      <span class="icon">🎬</span>
+      <p><strong>Click or drag</strong> your .srt file here</p>
+    </div>
+    <div id="badge-translate" style="display:none;" class="file-badge">
+      <span class="dot"></span><span id="badge-translate-name"></span>
+      <span style="color:var(--muted);" id="badge-translate-count"></span>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="notice">
+      Uses <strong>MyMemory</strong> — free, no API key needed. Translates ~1,000 entries/minute.
+      For large files (&gt;500 entries) the process may take a few minutes.
+    </div>
+
+    <div class="action-row">
+      <button class="btn" id="btn-translate" disabled onclick="startTranslation()">Translate →</button>
+      <button class="btn secondary" id="btn-download-translated" style="display:none" onclick="downloadTranslated()">Download .srt</button>
+      <span class="stat" id="stat-translate"></span>
+    </div>
+
+    <div class="progress-wrap" id="progress-translate" style="display:none">
+      <div class="progress-meta">
+        <span id="progress-translate-label">Translating…</span>
+        <span id="progress-translate-pct">0%</span>
+      </div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-translate-bar"></div></div>
+    </div>
+
+    <div class="log" id="log-translate" style="display:none"></div>
+
+  </div>
+
+  <!-- ── MERGE PANEL ─────────────────────────────────────── -->
+  <div class="panel" id="panel-merge">
+
+    <div class="grid-2">
+      <div>
+        <div class="section-label">Primary file (shown first)</div>
+        <div class="drop-zone" id="drop-primary">
+          <input type="file" accept=".srt" id="file-primary" onchange="handleMergeFile('primary', this.files[0])">
+          <span class="icon">🇬🇧</span>
+          <p><strong>Click or drag</strong><br>e.g. English .srt</p>
+        </div>
+        <div id="badge-primary" style="display:none" class="file-badge">
+          <span class="dot"></span><span id="badge-primary-name"></span>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Secondary file (shown below)</div>
+        <div class="drop-zone" id="drop-secondary">
+          <input type="file" accept=".srt" id="file-secondary" onchange="handleMergeFile('secondary', this.files[0])">
+          <span class="icon">🇩🇪</span>
+          <p><strong>Click or drag</strong><br>e.g. German .srt</p>
+        </div>
+        <div id="badge-secondary" style="display:none" class="file-badge">
+          <span class="dot"></span><span id="badge-secondary-name"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="notice">
+      Matches entries by subtitle number. If a number is missing in the secondary file, the primary text is used as fallback.
+    </div>
+
+    <div class="action-row">
+      <button class="btn" id="btn-merge" disabled onclick="mergeSRTs()">Merge →</button>
+      <button class="btn secondary" id="btn-download-merged" style="display:none" onclick="downloadMerged()">Download .srt</button>
+      <span class="stat" id="stat-merge"></span>
+    </div>
+
+    <div class="log" id="log-merge" style="display:none"></div>
+
+  </div>
+
+</div>
+
+<script>
+// ── TABS ────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['translate','merge'][i] === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── DROP ZONE DRAG EVENTS ───────────────────────────────────
+['drop-translate','drop-primary','drop-secondary'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('drag'); });
+  el.addEventListener('dragleave', () => el.classList.remove('drag'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    if (id === 'drop-translate') handleTranslateFile(f);
+    else if (id === 'drop-primary') handleMergeFile('primary', f);
+    else handleMergeFile('secondary', f);
+  });
+});
+
+// ── SRT PARSER ──────────────────────────────────────────────
+function parseSRT(text) {
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = text.trim().split(/\n{2,}/);
+  const entries = [];
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    if (lines.length < 3 || !lines[1].includes('-->')) continue;
+    entries.push({ index: lines[0].trim(), timing: lines[1].trim(), text: lines.slice(2).join('\n') });
+  }
+  return entries;
+}
+
+function readFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file, 'utf-8');
+  });
+}
+
+// ── TRANSLATE ───────────────────────────────────────────────
+let translateEntries = [], translatedResult = '', translateFileName = '';
+
+async function handleTranslateFile(file) {
+  if (!file) return;
+  translateFileName = file.name;
+  const text = await readFile(file);
+  translateEntries = parseSRT(text);
+  document.getElementById('badge-translate-name').textContent = file.name;
+  document.getElementById('badge-translate-count').textContent = `· ${translateEntries.length} entries`;
+  document.getElementById('badge-translate').style.display = 'inline-flex';
+  document.getElementById('btn-translate').disabled = false;
+  document.getElementById('stat-translate').textContent = '';
+}
+
+function log(panelId, msg, cls='') {
+  const el = document.getElementById('log-' + panelId);
+  el.style.display = 'block';
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function translateText(text, from, to) {
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (data.responseStatus !== 200) throw new Error(data.responseDetails || 'Translation failed');
+  return data.responseData.translatedText;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startTranslation() {
+  const from = document.getElementById('lang-from').value;
+  const to   = document.getElementById('lang-to').value;
+  if (from === to) { alert('Source and target language must be different.'); return; }
+
+  const btn = document.getElementById('btn-translate');
+  btn.disabled = true;
+  btn.textContent = 'Translating…';
+  document.getElementById('btn-download-translated').style.display = 'none';
+  document.getElementById('log-translate').style.display = 'block';
+  document.getElementById('log-translate').innerHTML = '';
+  document.getElementById('progress-translate').style.display = 'block';
+
+  const total = translateEntries.length;
+  const translations = {};
+
+  // MyMemory: max ~500 chars per call — batch by character limit
+  const CHAR_LIMIT = 450;
+  const SEP = ' @@@ ';
+
+  let i = 0;
+  while (i < total) {
+    // Fill a batch up to CHAR_LIMIT
+    let batch = [];
+    let charCount = 0;
+    while (i < total && charCount + translateEntries[i].text.replace(/\n/g,' ').length + SEP.length < CHAR_LIMIT) {
+      const t = translateEntries[i].text.replace(/\n/g, ' | ');
+      batch.push({ index: translateEntries[i].index, text: t });
+      charCount += t.length + SEP.length;
+      i++;
+    }
+    if (batch.length === 0) {
+      // Single entry too long — translate alone, truncating if needed
+      const entry = translateEntries[i];
+      batch.push({ index: entry.index, text: entry.text.replace(/\n/g,' | ').slice(0, 490) });
+      i++;
+    }
+
+    const joined = batch.map(b => b.text).join(SEP);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await translateText(joined, from, to);
+        const parts = result.split(SEP);
+        batch.forEach((b, j) => {
+          translations[b.index] = (parts[j] || b.text).replace(/ \| /g, '\n').replace(/\|/g, '\n');
+        });
+        break;
+      } catch (err) {
+        if (attempt === 2) {
+          batch.forEach(b => { translations[b.index] = b.text; });
+          log('translate', `⚠ batch failed after 3 attempts: ${err.message}`, 'err');
+        } else {
+          await sleep(1500 * (attempt + 1));
+        }
+      }
+    }
+
+    const pct = Math.round((i / total) * 100);
+    document.getElementById('progress-translate-bar').style.width = pct + '%';
+    document.getElementById('progress-translate-pct').textContent = pct + '%';
+    document.getElementById('progress-translate-label').textContent = `Entry ${i} of ${total}`;
+
+    if (i % 50 === 0 || i === total) log('translate', `✓ ${i}/${total} entries done`, 'ok');
+
+    await sleep(120); // respect rate limits
+  }
+
+  // Build translated SRT
+  translatedResult = translateEntries.map(e =>
+    `${e.index}\n${e.timing}\n${translations[e.index] || e.text}`
+  ).join('\n\n') + '\n';
+
+  log('translate', `✓ Done! ${total} entries translated.`, 'ok');
+  document.getElementById('progress-translate-label').textContent = 'Complete';
+  document.getElementById('stat-translate').textContent = `${total} entries`;
+  document.getElementById('btn-download-translated').style.display = 'inline-flex';
+  btn.textContent = 'Translate →';
+  btn.disabled = false;
+}
+
+function downloadTranslated() {
+  const langTo = document.getElementById('lang-to').value.toUpperCase();
+  const name = translateFileName.replace('.srt', '') + `_${langTo}.srt`;
+  download(name, translatedResult);
+}
+
+// ── MERGE ───────────────────────────────────────────────────
+let mergeFiles = { primary: null, secondary: null };
+let mergedResult = '', mergeOutputName = '';
+
+async function handleMergeFile(role, file) {
+  if (!file) return;
+  const text = await readFile(file);
+  mergeFiles[role] = { name: file.name, entries: parseSRT(text) };
+  document.getElementById(`badge-${role}-name`).textContent = file.name;
+  document.getElementById(`badge-${role}`).style.display = 'inline-flex';
+  document.getElementById('btn-merge').disabled = !(mergeFiles.primary && mergeFiles.secondary);
+}
+
+function mergeSRTs() {
+  const primary   = mergeFiles.primary.entries;
+  const secondary = mergeFiles.secondary.entries;
+
+  // Build lookup from secondary by index
+  const secMap = {};
+  secondary.forEach(e => { secMap[e.index] = e.text; });
+
+  const lines = [];
+  let matched = 0, fallback = 0;
+  for (const entry of primary) {
+    const secText = secMap[entry.index];
+    if (secText) matched++;
+    else fallback++;
+    lines.push(`${entry.index}\n${entry.timing}\n${entry.text}\n${secText || entry.text}`);
+  }
+
+  mergedResult = lines.join('\n\n') + '\n';
+  mergeOutputName = mergeFiles.primary.name.replace('.srt', '') + '_bilingual.srt';
+
+  const logEl = document.getElementById('log-merge');
+  logEl.style.display = 'block';
+  logEl.innerHTML = `<div class="ok">✓ Merged ${primary.length} entries.</div>
+<div class="info">· ${matched} matched · ${fallback} used primary as fallback</div>`;
+
+  document.getElementById('stat-merge').textContent = `${primary.length} entries`;
+  document.getElementById('btn-download-merged').style.display = 'inline-flex';
+}
+
+function downloadMerged() { download(mergeOutputName, mergedResult); }
+
+// ── DOWNLOAD HELPER ─────────────────────────────────────────
+function download(filename, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
