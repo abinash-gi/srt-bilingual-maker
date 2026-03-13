@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual SRT Generator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: white;
+            border-radius: 8px;
+        }
+        h1 { font-size: 24px; margin-bottom: 5px; }
+        p { color: #666; font-size: 14px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        select, input[type="file"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button:hover:not(:disabled) { background-color: #0056b3; }
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 20px;
+            background-color: #28a745;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        #status { margin-top: 10px; font-size: 14px; font-weight: bold; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>Bilingual SRT Generator</h1>
+    <p>Upload an English .srt file. This tool will translate it and generate a merged, bilingual subtitle file.</p>
+
+    <div class="form-group">
+        <label for="srtFile">Original SRT File:</label>
+        <input type="file" id="srtFile" accept=".srt">
+    </div>
+
+    <div class="form-group">
+        <label for="targetLang">Translate to:</label>
+        <select id="targetLang">
+            <option value="de" selected>German</option>
+            <option value="es">Spanish</option>
+            <option value="fr">French</option>
+            <option value="it">Italian</option>
+        </select>
+    </div>
+
+    <button id="processBtn">Translate & Merge</button>
+
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div id="status"></div>
+
+    <script>
+        document.getElementById('processBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('srtFile');
+            const targetLang = document.getElementById('targetLang').value;
+            const statusDiv = document.getElementById('status');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const btn = document.getElementById('processBtn');
+
+            if (!fileInput.files.length) {
+                alert("Please select an SRT file first.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async (e) => {
+                const content = e.target.result;
+                btn.disabled = true;
+                progressContainer.style.display = 'block';
+                statusDiv.innerText = "Parsing file...";
+
+                const blocks = parseSRT(content);
+                const totalBlocks = blocks.length;
+                let mergedSRT = "";
+
+                // Batch settings to avoid API overload
+                const batchSize = 10; 
+                let processed = 0;
+
+                statusDiv.innerText = `Found ${totalBlocks} subtitle blocks. Starting translation...`;
+
+                for (let i = 0; i < totalBlocks; i += batchSize) {
+                    const batch = blocks.slice(i, i + batchSize);
+                    
+                    // We join texts with a unique separator just like your python script
+                    const separator = " ||| ";
+                    const combinedText = batch.map(b => b.text.replace(/\n/g, " ")).join(separator);
+                    
+                    try {
+                        const translatedCombined = await translateText(combinedText, targetLang);
+                        const translatedParts = translatedCombined.split(separator).map(t => t.trim());
+
+                        batch.forEach((block, index) => {
+                            const translatedLine = translatedParts[index] || block.text; // fallback
+                            // Append Original AND Translated text
+                            mergedSRT += `${block.id}\n${block.timing}\n${block.text}\n${translatedLine}\n\n`;
+                        });
+                    } catch (error) {
+                        console.error("Translation error at batch", i, error);
+                        // Fallback to original text if API fails
+                        batch.forEach(block => {
+                            mergedSRT += `${block.id}\n${block.timing}\n${block.text}\n[Translation Failed]\n\n`;
+                        });
+                    }
+
+                    processed += batch.length;
+                    const percent = Math.round((processed / totalBlocks) * 100);
+                    progressBar.style.width = percent + '%';
+                    statusDiv.innerText = `Translating... ${percent}% (${processed}/${totalBlocks})`;
+
+                    // Small delay to prevent HTTP 429 Too Many Requests
+                    await new Promise(r => setTimeout(r, 500)); 
+                }
+
+                statusDiv.innerText = "Done! Downloading file...";
+                downloadFile(mergedSRT, `Bilingual_${file.name}`);
+                btn.disabled = false;
+            };
+
+            reader.readAsText(file);
+        });
+
+        // Parse SRT into objects
+        function parseSRT(data) {
+            const normalized = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const blocks = normalized.trim().split(/\n{2,}/);
+            const parsed = [];
+            
+            blocks.forEach(block => {
+                const lines = block.split('\n');
+                if (lines.length >= 3 && lines[1].includes('-->')) {
+                    parsed.push({
+                        id: lines[0],
+                        timing: lines[1],
+                        text: lines.slice(2).join('\n')
+                    });
+                }
+            });
+            return parsed;
+        }
+
+        // Fetch translation from free Google API
+        async function translateText(text, targetLang) {
+            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({ q: text })
+            });
+            const result = await response.json();
+            // Google API returns nested arrays, we need to map them back together
+            return result[0].map(item => item[0]).join('');
+        }
+
+        // Trigger file download in browser
+        function downloadFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
